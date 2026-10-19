@@ -1,6 +1,7 @@
 package com.pedidos360.backend.service;
 
 import com.pedidos360.backend.exception.PedidoNoEncontradoException;
+import com.pedidos360.backend.messaging.producer.PedidoEventPublisher;
 import com.pedidos360.backend.model.Pedido;
 import com.pedidos360.backend.model.PedidoRequest;
 import com.pedidos360.backend.repository.PedidoRepository;
@@ -12,9 +13,11 @@ import java.util.List;
 public class PedidoService {
 
     private final PedidoRepository pedidoRepository;
+    private final PedidoEventPublisher eventPublisher;
 
-    public PedidoService(PedidoRepository pedidoRepository) {
+    public PedidoService(PedidoRepository pedidoRepository, PedidoEventPublisher eventPublisher) {
         this.pedidoRepository = pedidoRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     public List<Pedido> listarTodos() {
@@ -33,7 +36,9 @@ public class PedidoService {
                 request.getCantidad(),
                 request.getEstado()
         );
-        return pedidoRepository.save(pedido);
+        Pedido guardado = pedidoRepository.save(pedido);
+        eventPublisher.pedidoCreado(guardado);          // NUEVO: avisa a RabbitMQ
+        return guardado;
     }
 
     public Pedido actualizar(Long id, PedidoRequest request) {
@@ -44,11 +49,15 @@ public class PedidoService {
         if (request.getEstado() != null && !request.getEstado().isBlank()) {
             pedido.setEstado(request.getEstado());
         }
-        return pedidoRepository.save(pedido);
+        Pedido actualizado = pedidoRepository.save(pedido);
+        eventPublisher.pedidoActualizado(actualizado);  // NUEVO
+        return actualizado;
     }
 
     public void eliminar(Long id) {
         Pedido pedido = buscarPorId(id);
         pedidoRepository.delete(pedido);
+        eventPublisher.pedidoEliminado(pedido);         // NUEVO
     }
 }
+
