@@ -1,0 +1,31 @@
+server:
+  port: 8095
+
+spring:
+  application:
+    name: ms-kafka-admin
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092,localhost:9093,localhost:9094}
+    admin:
+      fail-fast: false        # si Kafka aún no está listo, el servicio igual arranca
+      properties:
+        request.timeout.ms: 10000
+
+# Parámetros de administración de cada tópico (los lee TopicosConfig y los crea al iniciar)
+app:
+  topicos:
+    eventos:
+      nombre: pedidos-eventos
+      particiones: 3
+      replicas: 3
+      retention-ms: 604800000      # 7 días: permite releer/reconstruir reportes
+      cleanup-policy: delete       # se borran por tiempo
+      min-insync-replicas: 2       # con acks=all, se exige que 2 de 3 réplicas confirmen
+    metricas:
+      nombre: pedidos-metricas
+      particiones: 3
+      replicas: 3
+      cleanup-policy: compact      # solo importa el último valor de cada métrica (key)
+      min-insync-replicas: 2
+    dlt:
+      retention-ms: 1209600000     # 14 días para revisar mensajes fallidos

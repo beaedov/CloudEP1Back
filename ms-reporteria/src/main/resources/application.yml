@@ -1,0 +1,46 @@
+server:
+  port: 8096
+
+spring:
+  application:
+    name: ms-reporteria
+  kafka:
+    # Los 3 brokers: si uno cae, el cliente se conecta a otro
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092,localhost:9093,localhost:9094}
+
+    consumer:
+      group-id: reporteria-group          # grupo propio: recibe TODOS los eventos (independiente de auditoría)
+      auto-offset-reset: earliest         # si el grupo es nuevo, lee desde el inicio (reconstruye métricas)
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      # ErrorHandlingDeserializer: si llega un JSON roto no se cae el consumidor; el error va al error handler
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+        spring.json.value.default.type: com.pedidos360.reporteria.dto.PedidoEvento
+        spring.json.use.type.headers: false
+        spring.json.trusted.packages: "com.pedidos360.*"
+        max.poll.records: 50
+
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+      properties:
+        enable.idempotence: true
+        spring.json.add.type.headers: false
+
+    listener:
+      concurrency: 3        # 3 hilos consumidores = 1 por partición (balanceo dentro del grupo)
+      ack-mode: record      # confirma el offset después de procesar cada evento
+
+app:
+  kafka:
+    topico-eventos: pedidos-eventos
+    topico-metricas: pedidos-metricas
+    reintentos: 3
+    espera-reintento-ms: 1000
+
+logging:
+  level:
+    com.pedidos360: INFO

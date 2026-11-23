@@ -1,0 +1,35 @@
+server:
+  port: 8097
+
+spring:
+  application:
+    name: ms-auditoria
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092,localhost:9093,localhost:9094}
+
+    consumer:
+      group-id: auditoria-group           # grupo distinto al de reportería -> también recibe TODOS los eventos
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+        # tipo por defecto; el listener de métricas lo sobreescribe con su propio tipo
+        spring.json.value.default.type: com.pedidos360.auditoria.dto.PedidoEvento
+        spring.json.use.type.headers: false
+        spring.json.trusted.packages: "com.pedidos360.*"
+
+    listener:
+      concurrency: 3
+      ack-mode: record
+
+app:
+  kafka:
+    topico-eventos: pedidos-eventos
+    topico-metricas: pedidos-metricas
+    reintentos: 3
+    espera-reintento-ms: 1000
+
+logging:
+  level:
+    com.pedidos360: INFO

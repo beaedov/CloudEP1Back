@@ -1,6 +1,7 @@
 package com.pedidos360.backend.service;
 
 import com.pedidos360.backend.exception.PedidoNoEncontradoException;
+import com.pedidos360.backend.messaging.kafka.PedidoKafkaProducer;
 import com.pedidos360.backend.messaging.producer.PedidoEventPublisher;
 import com.pedidos360.backend.model.Pedido;
 import com.pedidos360.backend.model.PedidoRequest;
@@ -14,10 +15,13 @@ public class PedidoService {
 
     private final PedidoRepository pedidoRepository;
     private final PedidoEventPublisher eventPublisher;
+    private final PedidoKafkaProducer kafkaProducer;
 
-    public PedidoService(PedidoRepository pedidoRepository, PedidoEventPublisher eventPublisher) {
+    public PedidoService(PedidoRepository pedidoRepository, PedidoEventPublisher eventPublisher,
+                         PedidoKafkaProducer kafkaProducer) {
         this.pedidoRepository = pedidoRepository;
         this.eventPublisher = eventPublisher;
+        this.kafkaProducer = kafkaProducer;
     }
 
     public List<Pedido> listarTodos() {
@@ -37,7 +41,8 @@ public class PedidoService {
                 request.getEstado()
         );
         Pedido guardado = pedidoRepository.save(pedido);
-        eventPublisher.pedidoCreado(guardado);          // NUEVO: avisa a RabbitMQ
+        eventPublisher.pedidoCreado(guardado);          // RabbitMQ: notificación, ticket y documento
+        kafkaProducer.pedidoCreado(guardado);           // Kafka: evento de negocio (reportería y auditoría)
         return guardado;
     }
 
@@ -50,14 +55,16 @@ public class PedidoService {
             pedido.setEstado(request.getEstado());
         }
         Pedido actualizado = pedidoRepository.save(pedido);
-        eventPublisher.pedidoActualizado(actualizado);  // NUEVO
+        eventPublisher.pedidoActualizado(actualizado);  // RabbitMQ
+        kafkaProducer.pedidoActualizado(actualizado);   // Kafka
         return actualizado;
     }
 
     public void eliminar(Long id) {
         Pedido pedido = buscarPorId(id);
         pedidoRepository.delete(pedido);
-        eventPublisher.pedidoEliminado(pedido);         // NUEVO
+        eventPublisher.pedidoEliminado(pedido);         // RabbitMQ
+        kafkaProducer.pedidoEliminado(pedido);          // Kafka
     }
 }
 
